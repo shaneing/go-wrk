@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -72,26 +73,44 @@ func StartClient(url_, heads, requestBody string, meth string, dka bool, respons
 
 		respObj := &Response{}
 
+		doRead := func() {
+			var err error
+			var n int64
+			var data []byte
+
+			defer func() {
+				respObj.StatusCode = resp.StatusCode
+				if err != nil {
+					respObj.Error = true
+				}
+
+				_ = resp.Body.Close()
+			}()
+
+			if *readAll {
+				n, err = io.Copy(ioutil.Discard, resp.Body)
+				respObj.Size = n
+				return
+			}
+
+			if resp.ContentLength < 0 { // -1 if the length is unknown
+				data, err = ioutil.ReadAll(resp.Body)
+				respObj.Size = int64(len(data))
+				return
+			}
+
+			respObj.Size = resp.ContentLength
+			if *respContains != "" {
+				data, err = ioutil.ReadAll(resp.Body)
+				if err == nil {
+					respObj.Body = string(data)
+				}
+			}
+		}
 		if err != nil {
 			respObj.Error = true
 		} else {
-			if resp.ContentLength < 0 { // -1 if the length is unknown
-				data, err := ioutil.ReadAll(resp.Body)
-				if err == nil {
-					respObj.Size = int64(len(data))
-				}
-			} else {
-				respObj.Size = resp.ContentLength
-				if *respContains != "" {
-					data, err := ioutil.ReadAll(resp.Body)
-					if err == nil {
-						respObj.Body = string(data)
-					}
-				}
-			}
-			respObj.StatusCode = resp.StatusCode
-
-			resp.Body.Close()
+			doRead()
 		}
 
 		respObj.Duration = timer.Duration()

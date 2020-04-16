@@ -32,6 +32,7 @@ var (
 	caFile            = flag.String("CA", "someCertCAFile", "A PEM eoncoded CA's certificate file.")
 	insecure          = flag.Bool("i", false, "TLS checks are disabled")
 	respContains      = flag.String("s", "", "if specified, it counts how often the searched string s is contained in the responses")
+	readAll           = flag.Bool("r", false, "if specified, it will read from http response body until an error or EOF")
 )
 
 func init() {
